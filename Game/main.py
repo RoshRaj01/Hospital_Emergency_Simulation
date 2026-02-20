@@ -241,38 +241,35 @@ while True:
 
             screen.blit(text_surface, (text_x, text_y - camera_y))
 
-    # ------------------------
-    # WAITING AREA
-    # ------------------------
-    waiting_y = ROOM_TOP_MARGIN + rows * (room_h + ROOM_GAP_Y) + 50
-    waiting_x = (WIDTH - waiting_img.get_width()) // 2
+        # ------------------------
+        # WAITING AREA
+        # ------------------------
+        waiting_y = ROOM_TOP_MARGIN + rows * (room_h + ROOM_GAP_Y) + 50
+        waiting_x = (WIDTH - waiting_img.get_width()) // 2
 
-    screen.blit(waiting_img, (waiting_x, waiting_y - camera_y))
+        screen.blit(waiting_img, (waiting_x, waiting_y - camera_y))
 
-    queue_list = sorted(sim.queue)
+        queue_list = sorted(sim.queue)
+        max_per_row = (waiting_img.get_width() - 80) // 60
+        row_height = 75
 
-    # Fixed grid layout (stable spacing like old version)
-    max_per_row = (waiting_img.get_width() - 80) // 60
-    row_height = 75
+        for i, item in enumerate(queue_list):
+            severity = item[2]["severity"]
 
-    for i, item in enumerate(queue_list):
+            if severity == "Minor":
+                img = patient_minor
+            elif severity == "Moderate":
+                img = patient_moderate
+            else:
+                img = patient_critical
 
-        severity = item[2]["severity"]
+            row = i // max_per_row
+            col = i % max_per_row
 
-        if severity == "Minor":
-            img = patient_minor
-        elif severity == "Moderate":
-            img = patient_moderate
-        else:
-            img = patient_critical
+            pat_x = waiting_x + 40 + col * 60
+            pat_y = waiting_y + 70 + row * row_height
 
-        row = i // max_per_row
-        col = i % max_per_row
-
-        pat_x = waiting_x + 40 + col * 60
-        pat_y = waiting_y + 70 + row * row_height
-
-        screen.blit(img, (pat_x, pat_y - camera_y))
+            screen.blit(img, (pat_x, pat_y - camera_y))
 
     # ------------------------
     # UI PANEL
