@@ -30,30 +30,12 @@ UI_HEIGHT = 110
 ROOM_TOP_MARGIN = UI_HEIGHT + 40
 ROOM_GAP_Y = 80
 
-# ------------------------
-# GLOBAL SCALE CONTROLS
-# ------------------------
-
-# Increase value → bigger sprite
-# Decrease value → smaller sprite
-
 ROOM_SCALE = 1
 DOCTOR_SCALE = 0.35
 PATIENT_SCALE = 0.25
 WAITING_SCALE = 0.7
 
-# ------------------------
-# DOCTOR POSITION TUNING
-# ------------------------
-
-# X OFFSET:
-#   Increase value  → doctor moves RIGHT
-#   Decrease value  → doctor moves LEFT
 doctor_x_offset = -250
-
-# Y OFFSET:
-#   Increase value  → doctor moves DOWN
-#   Decrease value  → doctor moves UP
 doctor_y_offset = -250
 
 SIM_SPEED_DIVIDER = 6
@@ -113,7 +95,7 @@ input_box = pygame.Rect(820, 35, 80, 40)
 
 cursor_visible = True
 cursor_timer = 0
-CURSOR_BLINK_SPEED = 500  # milliseconds
+CURSOR_BLINK_SPEED = 500
 
 # ------------------------
 # BUTTONS
@@ -138,6 +120,7 @@ while True:
     if cursor_timer >= CURSOR_BLINK_SPEED:
         cursor_visible = not cursor_visible
         cursor_timer = 0
+
     screen.fill((0, 0, 0))
 
     for event in pygame.event.get():
@@ -149,14 +132,9 @@ while True:
         if event.type == pygame.MOUSEWHEEL:
             camera_y -= event.y * SCROLL_SPEED
 
-        # --- INPUT BOX CLICK ---
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if input_box.collidepoint(event.pos):
-                time_input_active = True
-            else:
-                time_input_active = False
+            time_input_active = input_box.collidepoint(event.pos)
 
-        # --- KEYBOARD INPUT ---
         if event.type == pygame.KEYDOWN and time_input_active:
             if event.key == pygame.K_BACKSPACE:
                 time_input_text = time_input_text[:-1]
@@ -165,11 +143,9 @@ while True:
             elif event.unicode.isdigit():
                 time_input_text += event.unicode
 
-        # --- START ---
         if start_btn.is_clicked(event):
             try:
-                minutes = int(time_input_text)
-                minutes = max(1, minutes)
+                minutes = max(1, int(time_input_text))
             except:
                 minutes = 8
 
@@ -178,7 +154,6 @@ while True:
                 arrival_prob=sim.arrival_prob,
                 sim_time=minutes * 60
             )
-
             running_sim = True
 
         if pause_btn.is_clicked(event):
@@ -192,13 +167,11 @@ while True:
             )
             running_sim = False
 
-        if add_doc_btn.is_clicked(event):
-            if len(sim.doctors) < MAX_DOCTORS:
-                sim.set_doctors(len(sim.doctors) + 1)
+        if add_doc_btn.is_clicked(event) and len(sim.doctors) < MAX_DOCTORS:
+            sim.set_doctors(len(sim.doctors) + 1)
 
-        if sub_doc_btn.is_clicked(event):
-            if len(sim.doctors) > 1:
-                sim.set_doctors(len(sim.doctors) - 1)
+        if sub_doc_btn.is_clicked(event) and len(sim.doctors) > 1:
+            sim.set_doctors(len(sim.doctors) - 1)
 
         if add_prob_btn.is_clicked(event):
             sim.set_arrival_probability(sim.arrival_prob + 0.05)
@@ -206,34 +179,26 @@ while True:
         if sub_prob_btn.is_clicked(event):
             sim.set_arrival_probability(sim.arrival_prob - 0.05)
 
-    # Slow simulation time
     if running_sim:
         frame_counter += 1
         if frame_counter >= SIM_SPEED_DIVIDER:
             sim.step()
             frame_counter = 0
 
-    # ------------------------
-    # WORLD SIZE
-    # ------------------------
     room_w = room_img.get_width()
     room_h = room_img.get_height()
-
     rows = len(sim.doctors)
 
     world_height = ROOM_TOP_MARGIN + rows * (room_h + ROOM_GAP_Y) + waiting_img.get_height() + 150
     camera_y = max(0, min(camera_y, world_height - HEIGHT))
 
-    # ------------------------
-    # DRAW BACKGROUND
-    # ------------------------
     for y in range(0, world_height, background.get_height()):
         screen.blit(background, (0, y - camera_y))
 
     # ------------------------
     # DRAW ROOMS
     # ------------------------
-    for i in range(len(sim.doctors)):
+    for i in range(rows):
 
         x = (WIDTH - room_w) // 2
         y = ROOM_TOP_MARGIN + i * (room_h + ROOM_GAP_Y)
@@ -241,7 +206,6 @@ while True:
         screen.blit(room_img, (x, y - camera_y))
 
         doctor_sprite = doctor_img if i % 2 == 0 else doctor2_img
-
         base_doc_x = x + room_w - doctor_sprite.get_width()
         base_doc_y = y + room_h - doctor_sprite.get_height()
 
@@ -262,22 +226,18 @@ while True:
             else:
                 img = patient_critical_down
 
-            # Rotate patient to match vertical bed
             img = pygame.transform.rotate(img, 50)
 
-            bed_x_offset = 400
-            bed_y_offset = 350
-
-            pat_x = x + bed_x_offset
-            pat_y = y + bed_y_offset
+            pat_x = x + 400
+            pat_y = y + 350
 
             screen.blit(img, (pat_x, pat_y - camera_y))
 
-            label_string = f"{severity} | {time_left}s"
-            text_surface = small_font.render(label_string, True, (0, 0, 0))
+            label = f"{severity} | {time_left}s"
+            text_surface = small_font.render(label, True, (0, 0, 0))
 
             text_x = x + room_w // 2 - text_surface.get_width() // 2
-            text_y = y + 8
+            text_y = y + 120
 
             screen.blit(text_surface, (text_x, text_y - camera_y))
 
@@ -290,10 +250,13 @@ while True:
     screen.blit(waiting_img, (waiting_x, waiting_y - camera_y))
 
     queue_list = sorted(sim.queue)
+
+    # Fixed grid layout (stable spacing like old version)
     max_per_row = (waiting_img.get_width() - 80) // 60
     row_height = 75
 
     for i, item in enumerate(queue_list):
+
         severity = item[2]["severity"]
 
         if severity == "Minor":
@@ -322,18 +285,14 @@ while True:
     screen.blit(font.render("Arrival", True, (0, 0, 0)), (650, 10))
     screen.blit(font.render("Duration (min)", True, (0, 0, 0)), (820, 10))
 
-    # Input box
     pygame.draw.rect(screen, (255,255,255), input_box, border_radius=4)
     pygame.draw.rect(screen, (0,0,0), input_box, 2, border_radius=4)
 
     display_text = time_input_text
-
-    # Add blinking cursor if active
     if time_input_active and cursor_visible:
         display_text += "|"
 
     text_surface = font.render(display_text, True, (0, 0, 0))
-
     screen.blit(text_surface, (
         input_box.x + 10,
         input_box.y + (input_box.height - text_surface.get_height()) // 2
