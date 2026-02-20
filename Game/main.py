@@ -12,20 +12,16 @@ pygame.display.set_caption("Hospital Manager")
 
 clock = pygame.time.Clock()
 font = pygame.font.SysFont("Arial", 20)
+small_font = pygame.font.SysFont("Arial", 16)
 
 # ------------------------
 # LOAD BACKGROUND AFTER WINDOW
 # ------------------------
 background = pygame.image.load("Assets/background.png").convert()
 
-# Now resize window to match background width
 bg_width = background.get_width()
 screen = pygame.display.set_mode((bg_width, HEIGHT))
 WIDTH = bg_width
-
-pygame.display.set_caption("Hospital Manager")
-clock = pygame.time.Clock()
-font = pygame.font.SysFont("Arial", 20)
 
 # ------------------------
 # CONSTANTS
@@ -34,7 +30,32 @@ UI_HEIGHT = 110
 ROOM_TOP_MARGIN = UI_HEIGHT + 40
 ROOM_GAP_Y = 80
 
-# Slow simulation speed (smooth FPS)
+# ------------------------
+# GLOBAL SCALE CONTROLS
+# ------------------------
+
+# Increase value → bigger sprite
+# Decrease value → smaller sprite
+
+ROOM_SCALE = 1
+DOCTOR_SCALE = 0.35
+PATIENT_SCALE = 0.25
+WAITING_SCALE = 0.7
+
+# ------------------------
+# DOCTOR POSITION TUNING
+# ------------------------
+
+# X OFFSET:
+#   Increase value  → doctor moves RIGHT
+#   Decrease value  → doctor moves LEFT
+doctor_x_offset = -250
+
+# Y OFFSET:
+#   Increase value  → doctor moves DOWN
+#   Decrease value  → doctor moves UP
+doctor_y_offset = -250
+
 SIM_SPEED_DIVIDER = 6
 frame_counter = 0
 
@@ -55,9 +76,6 @@ patient_minor_down = pygame.image.load("Assets/patient_down.png").convert_alpha(
 patient_moderate_down = pygame.image.load("Assets/injured_patient_down.png").convert_alpha()
 patient_critical_down = pygame.image.load("Assets/critical_patient_down.png").convert_alpha()
 
-# ------------------------
-# SCALE
-# ------------------------
 def scale(img, factor):
     return pygame.transform.smoothscale(
         img,
@@ -65,19 +83,19 @@ def scale(img, factor):
          int(img.get_height() * factor))
     )
 
-room_img = scale(room_img, 0.6)
-waiting_img = scale(waiting_img, 0.7)
+room_img = scale(room_img, ROOM_SCALE)
+waiting_img = scale(waiting_img, WAITING_SCALE)
 
-doctor_img = scale(doctor_img, 0.35)
-doctor2_img = scale(doctor2_img, 0.35)
+doctor_img = scale(doctor_img, DOCTOR_SCALE)
+doctor2_img = scale(doctor2_img, DOCTOR_SCALE)
 
-patient_minor = scale(patient_minor, 0.35)
-patient_moderate = scale(patient_moderate, 0.35)
-patient_critical = scale(patient_critical, 0.35)
+patient_minor = scale(patient_minor, PATIENT_SCALE)
+patient_moderate = scale(patient_moderate, PATIENT_SCALE)
+patient_critical = scale(patient_critical, PATIENT_SCALE)
 
-patient_minor_down = scale(patient_minor_down, 0.25)
-patient_moderate_down = scale(patient_moderate_down, 0.25)
-patient_critical_down = scale(patient_critical_down, 0.25)
+patient_minor_down = scale(patient_minor_down, PATIENT_SCALE)
+patient_moderate_down = scale(patient_moderate_down, PATIENT_SCALE)
+patient_critical_down = scale(patient_critical_down, PATIENT_SCALE)
 
 # ------------------------
 # SIMULATION
@@ -85,6 +103,17 @@ patient_critical_down = scale(patient_critical_down, 0.25)
 sim = EmergencyRoomSimulation(num_doctors=3)
 camera_y = 0
 running_sim = False
+
+# ------------------------
+# TIME INPUT
+# ------------------------
+time_input_active = False
+time_input_text = "8"
+input_box = pygame.Rect(820, 35, 80, 40)
+
+cursor_visible = True
+cursor_timer = 0
+CURSOR_BLINK_SPEED = 500  # milliseconds
 
 # ------------------------
 # BUTTONS
@@ -99,15 +128,16 @@ sub_doc_btn = Button(530, 35, 40, 40, "-")
 add_prob_btn = Button(650, 35, 40, 40, "+")
 sub_prob_btn = Button(700, 35, 40, 40, "-")
 
-# Small font created once (optimization)
-small_font = pygame.font.SysFont("Arial", 16)
-
 # ------------------------
 # MAIN LOOP
 # ------------------------
 while True:
 
     clock.tick(60)
+    cursor_timer += clock.get_time()
+    if cursor_timer >= CURSOR_BLINK_SPEED:
+        cursor_visible = not cursor_visible
+        cursor_timer = 0
     screen.fill((0, 0, 0))
 
     for event in pygame.event.get():
@@ -119,14 +149,47 @@ while True:
         if event.type == pygame.MOUSEWHEEL:
             camera_y -= event.y * SCROLL_SPEED
 
+        # --- INPUT BOX CLICK ---
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if input_box.collidepoint(event.pos):
+                time_input_active = True
+            else:
+                time_input_active = False
+
+        # --- KEYBOARD INPUT ---
+        if event.type == pygame.KEYDOWN and time_input_active:
+            if event.key == pygame.K_BACKSPACE:
+                time_input_text = time_input_text[:-1]
+            elif event.key == pygame.K_RETURN:
+                time_input_active = False
+            elif event.unicode.isdigit():
+                time_input_text += event.unicode
+
+        # --- START ---
         if start_btn.is_clicked(event):
+            try:
+                minutes = int(time_input_text)
+                minutes = max(1, minutes)
+            except:
+                minutes = 8
+
+            sim = EmergencyRoomSimulation(
+                num_doctors=len(sim.doctors),
+                arrival_prob=sim.arrival_prob,
+                sim_time=minutes * 60
+            )
+
             running_sim = True
 
         if pause_btn.is_clicked(event):
             running_sim = False
 
         if restart_btn.is_clicked(event):
-            sim = EmergencyRoomSimulation(num_doctors=len(sim.doctors))
+            sim = EmergencyRoomSimulation(
+                num_doctors=len(sim.doctors),
+                arrival_prob=sim.arrival_prob,
+                sim_time=int(time_input_text) * 60
+            )
             running_sim = False
 
         if add_doc_btn.is_clicked(event):
@@ -178,8 +241,13 @@ while True:
         screen.blit(room_img, (x, y - camera_y))
 
         doctor_sprite = doctor_img if i % 2 == 0 else doctor2_img
-        doc_x = x + room_w - doctor_sprite.get_width() - 25
-        doc_y = y + room_h - doctor_sprite.get_height() - 30
+
+        base_doc_x = x + room_w - doctor_sprite.get_width()
+        base_doc_y = y + room_h - doctor_sprite.get_height()
+
+        doc_x = base_doc_x + doctor_x_offset
+        doc_y = base_doc_y + doctor_y_offset
+
         screen.blit(doctor_sprite, (doc_x, doc_y - camera_y))
 
         if sim.doctors[i]["status"] == "busy":
@@ -194,23 +262,22 @@ while True:
             else:
                 img = patient_critical_down
 
-            # ---- BED-LOCKED PATIENT POSITION ----
+            # Rotate patient to match vertical bed
+            img = pygame.transform.rotate(img, 50)
 
-            # Bed anchor (tuned to your current scaled room)
-            bed_x_offset = 150
-            bed_y_offset = 230
+            bed_x_offset = 400
+            bed_y_offset = 350
 
             pat_x = x + bed_x_offset
             pat_y = y + bed_y_offset
 
             screen.blit(img, (pat_x, pat_y - camera_y))
 
-            # -------- CENTERED TEXT INSIDE ROOM --------
             label_string = f"{severity} | {time_left}s"
             text_surface = small_font.render(label_string, True, (0, 0, 0))
 
             text_x = x + room_w // 2 - text_surface.get_width() // 2
-            text_y = y + 8  # small padding from top inside room
+            text_y = y + 8
 
             screen.blit(text_surface, (text_x, text_y - camera_y))
 
@@ -223,9 +290,8 @@ while True:
     screen.blit(waiting_img, (waiting_x, waiting_y - camera_y))
 
     queue_list = sorted(sim.queue)
-
-    max_per_row = (waiting_img.get_width() - 80) // 60  # how many fit horizontally
-    row_height = 75  # vertical spacing between rows
+    max_per_row = (waiting_img.get_width() - 80) // 60
+    row_height = 75
 
     for i, item in enumerate(queue_list):
         severity = item[2]["severity"]
@@ -254,6 +320,24 @@ while True:
 
     screen.blit(font.render("Doctors", True, (0, 0, 0)), (480, 10))
     screen.blit(font.render("Arrival", True, (0, 0, 0)), (650, 10))
+    screen.blit(font.render("Duration (min)", True, (0, 0, 0)), (820, 10))
+
+    # Input box
+    pygame.draw.rect(screen, (255,255,255), input_box, border_radius=4)
+    pygame.draw.rect(screen, (0,0,0), input_box, 2, border_radius=4)
+
+    display_text = time_input_text
+
+    # Add blinking cursor if active
+    if time_input_active and cursor_visible:
+        display_text += "|"
+
+    text_surface = font.render(display_text, True, (0, 0, 0))
+
+    screen.blit(text_surface, (
+        input_box.x + 10,
+        input_box.y + (input_box.height - text_surface.get_height()) // 2
+    ))
 
     start_btn.draw(screen, font)
     pause_btn.draw(screen, font)
