@@ -207,8 +207,21 @@ while True:
     world_height = ROOM_TOP_MARGIN + rows * (room_h + ROOM_GAP_Y) + waiting_img.get_height() + 150
     camera_y = max(0, min(camera_y, world_height - HEIGHT))
 
-    for y in range(0, world_height, background.get_height()):
+    # ------------------------
+    # EMERGENCY ROOM HEADING
+    # ------------------------
+    # Draw background to fully cover screen height
+    for y in range(-background.get_height(), world_height + background.get_height(), background.get_height()):
         screen.blit(background, (0, y - camera_y))
+
+    heading_font = pygame.font.SysFont("Arial", 48, bold=True)
+
+    heading_text = heading_font.render("Emergency Room", True, (255, 0, 0))
+
+    heading_x = WIDTH // 2 - heading_text.get_width() // 2
+    heading_y = ROOM_TOP_MARGIN - 10  # adjust if needed
+
+    screen.blit(heading_text, (heading_x, heading_y - camera_y))
 
     # ------------------------
     # DRAW ROOMS
