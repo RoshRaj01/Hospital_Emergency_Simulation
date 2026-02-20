@@ -85,6 +85,7 @@ patient_critical_down = scale(patient_critical_down, PATIENT_SCALE)
 sim = EmergencyRoomSimulation(num_doctors=3)
 camera_y = 0
 running_sim = False
+sim_started = False
 
 # ------------------------
 # TIME INPUT
@@ -102,6 +103,7 @@ CURSOR_BLINK_SPEED = 500
 # ------------------------
 start_btn = Button(20, 35, 120, 40, "Start")
 pause_btn = Button(160, 35, 120, 40, "Pause")
+resume_btn = Button(160, 35, 120, 40, "Resume")
 restart_btn = Button(300, 35, 120, 40, "Restart")
 
 add_doc_btn = Button(480, 35, 40, 40, "+")
@@ -154,10 +156,22 @@ while True:
                 arrival_prob=sim.arrival_prob,
                 sim_time=minutes * 60
             )
-            running_sim = True
 
-        if pause_btn.is_clicked(event):
-            running_sim = False
+            running_sim = True
+            sim_started = True
+
+        # ------------------------
+        # Pause / Resume Logic
+        # ------------------------
+        if sim_started:
+
+            # If running → Pause allowed
+            if running_sim and pause_btn.is_clicked(event):
+                running_sim = False
+
+            # If paused → Resume allowed
+            elif not running_sim and resume_btn.is_clicked(event):
+                running_sim = True
 
         if restart_btn.is_clicked(event):
             sim = EmergencyRoomSimulation(
@@ -166,6 +180,7 @@ while True:
                 sim_time=int(time_input_text) * 60
             )
             running_sim = False
+            sim_started = False
 
         if add_doc_btn.is_clicked(event) and len(sim.doctors) < MAX_DOCTORS:
             sim.set_doctors(len(sim.doctors) + 1)
@@ -296,7 +311,17 @@ while True:
     ))
 
     start_btn.draw(screen, font)
-    pause_btn.draw(screen, font)
+
+    # Draw Pause or Resume in same place
+    # Draw Pause or Resume in same place
+    if sim_started:
+        if running_sim:
+            pause_btn.draw(screen, font)
+        else:
+            resume_btn.draw(screen, font)
+    else:
+        pause_btn.draw(screen, font)
+
     restart_btn.draw(screen, font)
 
     add_doc_btn.draw(screen, font)
